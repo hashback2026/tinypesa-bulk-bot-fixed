@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TinyPesa Bulk STK Push</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔔 Bulk STK Push Bot</h1>
+            <p>Send M-Pesa payment prompts to multiple numbers instantly</p>
+        </div>
+
+        <div class="card">
+            <div class="input-group">
+                <label>💰 Amount (KES)</label>
+                <input type="number" id="amount" placeholder="e.g. 100" min="1">
+            </div>
+
+            <div class="input-group">
+                <label>📋 Account Reference</label>
+                <input type="text" id="accountRef" placeholder="e.g. Invoice001" value="BulkPayment">
+            </div>
+
+            <div class="input-group">
+                <label>📱 Phone Numbers</label>
+                <textarea id="phoneNumbers" rows="10" placeholder="Enter phone numbers (one per line)&#10;e.g.&#10;0712345678&#10;+254712345678&#10;254712345678"></textarea>
+                <small>Supports: 07XX, +254, 254 formats</small>
+            </div>
+
+            <button onclick="sendBulk()" class="btn-primary">
+                <span id="btnText">🚀 Send STK Push to All</span>
+                <span id="btnLoader" class="loader hidden"></span>
+            </button>
+        </div>
+
+        <div id="results" class="results hidden">
+            <h3>📊 Results</h3>
+            <div class="stats">
+                <div class="stat success">
+                    <span id="successCount">0</span>
+                    <label>Successful</label>
+                </div>
+                <div class="stat failed">
+                    <span id="failedCount">0</span>
+                    <label>Failed</label>
+                </div>
+                <div class="stat total">
+                    <span id="totalCount">0</span>
+                    <label>Total</label>
+                </div>
+            </div>
+            <div id="details" class="details"></div>
+        </div>
+    </div>
+
+    <script>
+        async function sendBulk() {
+            const amount = document.getElementById('amount').value;
+            const accountRef = document.getElementById('accountRef').value;
+            const phonesText = document.getElementById('phoneNumbers').value;
+
+            if (!amount || !phonesText) {
+                alert('Please fill in amount and phone numbers');
+                return;
+            }
+
+            const phones = phonesText.split('\n').filter(p => p.trim());
+
+            const btnText = document.getElementById('btnText');
+            const btnLoader = document.getElementById('btnLoader');
+            btnText.textContent = 'Sending...';
+            btnLoader.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/send-bulk', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        phones: phones,
+                        amount: parseFloat(amount),
+                        account_ref: accountRef
+                    })
+                });
+
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                btnText.textContent = '🚀 Send STK Push to All';
+                btnLoader.classList.add('hidden');
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('successCount').textContent = data.successful;
+            document.getElementById('failedCount').textContent = data.failed;
+            document.getElementById('totalCount').textContent = data.total;
+
+            const details = document.getElementById('details');
+            details.innerHTML = data.results.map(r => `
+                <div class="result-item ${r.status}">
+                    <span class="phone">${r.original}</span>
+                    <span class="badge">${r.status === 'success' ? '✅ Sent' : '❌ Failed'}</span>
+                    ${r.message ? `<small>${r.message}</small>` : ''}
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
